@@ -9,9 +9,9 @@ For use in Kaggle object detection competitions ;)
 `pip install odach`
 
 # Usage
-See Example.ipynb.
+See `Example.ipynb`.
 
-The setup is very simple, similar to ttach.
+The setup is very simple, similar to [ttach](https://github.com/qubvel/ttach).
 
 ```python
 import odach as oda
