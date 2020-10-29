@@ -3,6 +3,8 @@ ODA is a test-time-augmentation tool for 2d object detectors.
 
 Used in Kaggle object detection competitions!
 
+![](imgs/res.png)
+
 # Install
 `pip install odach`
 
@@ -22,10 +24,14 @@ multi = [oda.MultiScale(i) for i in [0.8, 0.9, 1.1, 1.2]] + [oda.MultiScaleFlip(
 impath = "imgs/cars3.jpg"
 img = loadimg(impath)
 # wrap model and tta
-tta_model = oda.TTAWrapper(model, mono, multi)
+tta_model = oda.TTAWrapper(model, mono, multi, nms="wbf")
 # Execute TTA!
 boxes, scores, labels = tta_model.inference(img)
 ```
+
+
+
+* The boxes are also filtered by nms(wbf default).
 
 * The image size should be square.
 
