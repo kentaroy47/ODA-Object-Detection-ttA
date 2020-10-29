@@ -1,7 +1,7 @@
 # ODAch-Object-Detection-ttA in Pytorch
-ODA is a test-time-augmentation tool for 2d object detectors. 
+ODA is a test-time-augmentation (TTA) tool for 2d object detectors. 
 
-Used in Kaggle object detection competitions!
+For use in Kaggle object detection competitions ;)
 
 ![](imgs/res.png)
 
