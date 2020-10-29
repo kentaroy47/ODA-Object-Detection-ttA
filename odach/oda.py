@@ -71,7 +71,7 @@ class Multiply(Base):
         return boxes
 
 class MultiScale(Base):
-    # change brightness of image
+    # change scale of the image for TTA.
     def __init__(self, imscale):
         # scale is a float value 0.5~1.5
         self.imscale = imscale     
@@ -83,7 +83,7 @@ class MultiScale(Base):
         return boxes/self.imscale
 
 class MultiScaleFlip(Base):
-    # change brightness of image
+    # change scale of the image and hflip.
     def __init__(self, imscale):
         # scale is a float value 0.5~1.5
         self.imscale = imscale
@@ -93,6 +93,23 @@ class MultiScaleFlip(Base):
     def batch_augment(self, images):
         self.imsize = images.shape[2]
         return F.interpolate(images, scale_factor=self.imscale).flip(3)
+    def deaugment_boxes(self, boxes):
+        boxes[:, [0,2]] = self.imsize*self.imscale - boxes[:, [2,0]]
+        boxes = boxes/self.imscale
+        return boxes
+
+class MultiScaleHFlip(Base):
+    # change scale of the image and vflip.
+    # not useful for 2d detectors..
+    def __init__(self, imscale):
+        # scale is a float value 0.5~1.5
+        self.imscale = imscale
+    def augment(self, image):
+        self.imsize = image.shape[1]
+        return F.interpolate(image, scale_factor=self.imscale).flip(1)
+    def batch_augment(self, images):
+        self.imsize = images.shape[2]
+        return F.interpolate(images, scale_factor=self.imscale).flip(2)
     def deaugment_boxes(self, boxes):
         boxes[:, [0,2]] = self.imsize*self.imscale - boxes[:, [2,0]]
         boxes = boxes/self.imscale
@@ -127,6 +144,7 @@ class TTACompose(Base):
     
 from .nms import nms, soft_nms
 from .wbf import weighted_boxes_fusion
+
 class nms_func():
     """
     class to call nms during inference.
@@ -142,15 +160,26 @@ class nms_func():
             return weighted_boxes_fusion(boxes_list, scores_list, labels_list, self.weights, self.iou, self.skip)
         elif self.nms == "nms":
             return nms(boxes_list, scores_list, labels_list, iou_thr=self.iou, weights=self.weights)
+        # TODO: add soft-nms
         else:
             raise NotImplementedError()    
 
 # Model wrapper
 class TTAWrapper:
+    """
+    wrapper for tta and inference.
+    model: your detector. Right now, must output similar to the torchvision frcnn model.
+    mono: tta  which do not configure the image size.
+    multi: tta which configures the image size.
+    These two must be declared separetly.
+    nms: choose what nms algorithm to run. right now, wbf or nms.
+    iou_thr: iou threshold for nms
+    skip_box_thr: score threshold for nms
+    weights: for weighted box fusion, but None is fine.
+    """
     def __init__(self, model, mono=None, multi=None, nms="wbf", iou_thr=0.5, skip_box_thr=0.5, weights=None):
         self.ttas = self.generate_TTA(mono, multi)
-        self.model = model.eval()
-        
+        self.model = model.eval()       
         # set nms function
         # default is weighted box fusion.
         self.nms = nms_func(nms, weights, iou_thr, skip_box_thr)
