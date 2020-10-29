@@ -174,6 +174,7 @@ class TTAWrapper:
             results = self.model(img)
         return results
     
+    # TODO: change to call
     def inference(self, img):
         boxes = []; scores = []; labels = [];
         # TTA loop
