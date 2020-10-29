@@ -11,7 +11,7 @@ See Example.ipynb.
 
 The setup is very simple, similar to ttach.
 
-```
+```python
 import odach as oda
 # Declare single scale TTA variations
 mono = [oda.VerticalFlip(),oda.HorizontalFlip(), oda.Rotate90(), oda.Multiply(0.9), oda.Multiply(1.1)]
