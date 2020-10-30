@@ -15,23 +15,35 @@ See `Example.ipynb`.
 
 The setup is very simple, similar to [ttach](https://github.com/qubvel/ttach).
 
+## Singlescale TTA
 ```python
 import odach as oda
-# Declare single scale TTA variations
-mono = [oda.VerticalFlip(),oda.HorizontalFlip(), oda.Rotate90(), oda.Multiply(0.9), oda.Multiply(1.1)]
-# Declare multiscale-TTA with 0.8~1.2x image sizes.
-multi = [oda.MultiScale(i) for i in [0.8, 0.9, 1.1, 1.2]] + [oda.MultiScaleFlip(i) for i in [0.8, 0.9, 1.1, 1.2]]
+# Declare TTA variations
+tta = [oda.HorizontalFlip(), oda.VerticalFlip(), oda.Rotate90(), oda.Multiply(0.9), oda.Multiply(1.1)]
 
 # load image
-impath = "imgs/cars3.jpg"
 img = loadimg(impath)
 # wrap model and tta
-tta_model = oda.TTAWrapper(model, mono, multi, nms="wbf")
+tta_model = oda.TTAWrapper(model, tta)
 # Execute TTA!
-boxes, scores, labels = tta_model.inference(img)
+boxes, scores, labels = tta_model(img)
 ```
 
+## Multiscale TTA
+```python
+import odach as oda
+# Declare TTA variations
+tta = [oda.HorizontalFlip(), oda.VerticalFlip(), oda.Rotate90(), oda.Multiply(0.9), oda.Multiply(1.1)]
+# Declare scales to tta
+scale = [0.8, 0.9, 1, 1.1, 1.2]
 
+# load image
+img = loadimg(impath)
+# wrap model and tta
+tta_model = oda.TTAWrapper(model, tta, scale)
+# Execute TTA!
+boxes, scores, labels = tta_model(img)
+```
 
 * The boxes are also filtered by nms(wbf default).
 

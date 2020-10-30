@@ -177,25 +177,29 @@ class TTAWrapper:
     skip_box_thr: score threshold for nms
     weights: for weighted box fusion, but None is fine.
     """
-    def __init__(self, model, mono=None, multi=None, nms="wbf", iou_thr=0.5, skip_box_thr=0.5, weights=None):
-        self.ttas = self.generate_TTA(mono, multi)
+    def __init__(self, model, tta, scale=[1], nms="wbf", iou_thr=0.5, skip_box_thr=0.5, weights=None):
+        self.ttas = self.generate_TTA(tta, scale)
         self.model = model.eval()       
         # set nms function
         # default is weighted box fusion.
         self.nms = nms_func(nms, weights, iou_thr, skip_box_thr)
     
-    def generate_TTA(self, monoscale_TTAs=None, multiscale_TTAs=None):
+    def generate_TTA(self, tta, scale):
         from itertools import product
         tta_transforms = []
 
         # Generate ttas for monoscale TTAs
-        if monoscale_TTAs!=None:
-            for tta_combination in tuple([i, None] for i in monoscale_TTAs):
+        if len(scale)==1 and scale[0]==1:
+            print("preparing tta for monoscale..")
+            for tta_combination in product(*list([i, None] for i in tta)):
                 tta_transforms.append(TTACompose([tta_transform for tta_transform in tta_combination if tta_transform]))
         # Multiscale TTAs
-        if multiscale_TTAs!=None:
-            for tta_combination in multiscale_TTAs:
-                tta_transforms.append(TTACompose([tta_combination]))
+        else:
+            print("preparing tta for multiscale..")
+            for s in scale:
+                for tta_combination in product(*list([i, None] for i in tta)):
+                    tta_transforms.append(TTACompose([MultiScale(s)]
+                                                     +[tta_transform for tta_transform in tta_combination if tta_transform]))
         return tta_transforms
     
     def model_inference(self, img):
@@ -203,8 +207,11 @@ class TTAWrapper:
             results = self.model(img)
         return results
     
+    def tta_num(self):
+        return len(self.ttas)
+    
     # TODO: change to call
-    def inference(self, img):
+    def __call__(self, img):
         boxes = []; scores = []; labels = [];
         # TTA loop
         for tta in self.ttas:
