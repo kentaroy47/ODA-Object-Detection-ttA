@@ -53,7 +53,11 @@ boxes, scores, labels = tta_model(img)
 * Wrap your detection model so that the output is similar to torchvision frcnn format:
 [["box":[[x,y,x2,y2], [], ..], "labels": [0,1,..], "scores": [1.0, 0.8, ..]]
 
-## Thanks
+# Example
+## Global Wheat Detection
+[Example notebook](https://www.kaggle.com/kyoshioka47/example-of-odach)
+
+# Thanks
 nms, wbf are from https://kaggle.com/zfturbo
 
 tta is based on https://github.com/qubvel/ttach, https://github.com/andrewekhalel/edafa/tree/master/edafa and https://www.kaggle.com/shonenkov/wbf-over-tta-single-model-efficientdet
