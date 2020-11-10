@@ -237,5 +237,35 @@ class TTAWrapper:
 
         boxes, scores, labels = self.nms(boxes, scores, labels)
         return boxes, scores, labels
+
+# for use in EfficientDets
+class wrap_effdet:
+    def __init__(self, model):
+        self.model = model
     
+    def __call__(self, img, score_threshold=0.22):       
+        # inference
+        det = self.model(img, torch.tensor([1]*images.shape[0]).float().cuda())
+        
+        predictions = []
+        for i in range(img.shape[0]):
+            # unwrap output
+            boxes = det[i][:,:4]  
+            scores = det[i][:,4]
+            # filter output
+            npscore = scores.detach().cpu().numpy()
+            indexes = np.where(npscore > score_threshold)[0]
+            boxes = boxes[indexes]
+            # coco2pascal
+            boxes[:, 2] = boxes[:, 2] + boxes[:, 0]
+            boxes[:, 3] = boxes[:, 3] + boxes[:, 1]
+            # clamp boxes
+            boxes = boxes.clamp(0, 511)
+            # wrap outputs
+            predictions.append({
+                'boxes': boxes[indexes], #/(img.shape[2]-1),
+                'scores': scores[indexes],
+                "labels": torch.from_numpy(np.ones_like(npscore[indexes])).cuda()
+            })
             
+        return predictions
