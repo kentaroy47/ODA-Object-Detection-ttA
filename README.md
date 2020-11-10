@@ -53,6 +53,20 @@ boxes, scores, labels = tta_model(img)
 * Wrap your detection model so that the output is similar to torchvision frcnn format:
 [["box":[[x,y,x2,y2], [], ..], "labels": [0,1,..], "scores": [1.0, 0.8, ..]]
 
+* Example for EfficientDets
+https://www.kaggle.com/kyoshioka47/example-of-2d-single-scale-tta-with-odach/
+
+```python
+# wrap effdet
+oda_effdet = oda.wrap_effdet(effdet)
+# Declare TTA variations
+tta = [oda.HorizontalFlip(), oda.VerticalFlip(), oda.Rotate90()]
+# Declare scales to tta
+scale = [1]
+# wrap model and tta
+tta_model = oda.TTAWrapper(oda_effdet, tta, scale)
+```
+
 # Example
 ## Global Wheat Detection
 [Example notebook](https://www.kaggle.com/kyoshioka47/example-of-odach)
