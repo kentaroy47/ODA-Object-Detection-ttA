@@ -169,7 +169,7 @@ class TTAWrapper:
     """
     wrapper for tta and inference.
     model: your detector. Right now, must output similar to the torchvision frcnn model.
-    mono: tta  which do not configure the image size.
+    mono: tta which do not configure the image size.
     multi: tta which configures the image size.
     These two must be declared separetly.
     nms: choose what nms algorithm to run. right now, wbf or nms.
