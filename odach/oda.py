@@ -240,8 +240,10 @@ class TTAWrapper:
 
 # for use in EfficientDets
 class wrap_effdet:
-    def __init__(self, model):
+    def __init__(self, model, imsize=512):
+        # imsize.. input size of the model
         self.model = model
+        self.imsize = imsize
     
     def __call__(self, img, score_threshold=0.22):       
         # inference
@@ -260,11 +262,12 @@ class wrap_effdet:
             boxes[:, 2] = boxes[:, 2] + boxes[:, 0]
             boxes[:, 3] = boxes[:, 3] + boxes[:, 1]
             # clamp boxes
-            boxes = boxes.clamp(0, 511)
+            boxes = boxes.clamp(0, self.imsize-1)
             # wrap outputs
             predictions.append({
-                'boxes': boxes[indexes], #/(img.shape[2]-1),
+                'boxes': boxes[indexes],
                 'scores': scores[indexes],
+                # TODO: update for multi-label tasks
                 "labels": torch.from_numpy(np.ones_like(npscore[indexes])).cuda()
             })
             
