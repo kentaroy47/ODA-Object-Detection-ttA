@@ -8,7 +8,7 @@ from setuptools.command.install import install
 
 readme = open('README.md').read()
 
-VERSION = '0.1.4'
+VERSION = '0.1.5'
 
 # import subprocess
 # commit_hash = subprocess.check_output("git rev-parse HEAD", shell=True).decode('UTF-8').rstrip()
