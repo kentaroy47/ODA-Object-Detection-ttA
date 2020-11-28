@@ -46,7 +46,7 @@ class VerticalFlip(Base):
         return boxes
 
     
-class Rotate90Left(BaseDetectionTTA):
+class Rotate90Left(Base):
     def augment(self, image):
         self.imsize = image.shape[1]
         return torch.rot90(image, 1, (1, 2))
@@ -61,7 +61,7 @@ class Rotate90Left(BaseDetectionTTA):
         return res_boxes
 
 
-class Rotate90Right(BaseDetectionTTA):
+class Rotate90Right(Base):
     def augment(self, image):
         self.imsize = image.shape[1]
         return torch.rot90(image, 1, (2, 1))
