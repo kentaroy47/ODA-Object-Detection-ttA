@@ -17,6 +17,7 @@ class Base():
     def deaugment_boxes(self, boxes):
         raise NotImplementedError
 
+        
 class HorizontalFlip(Base):
     def augment(self, image):
         self.imsize = image.shape[1]
@@ -30,6 +31,7 @@ class HorizontalFlip(Base):
         boxes[:, [1,3]] = self.imsize - boxes[:, [3,1]]
         return boxes
 
+    
 class VerticalFlip(Base):
     def augment(self, image):
         self.imsize = image.shape[1]
@@ -42,8 +44,9 @@ class VerticalFlip(Base):
     def deaugment_boxes(self, boxes):
         boxes[:, [0,2]] = self.imsize - boxes[:, [2,0]]
         return boxes
+
     
-class Rotate90(Base):
+class Rotate90Left(Base):
     def augment(self, image):
         self.imsize = image.shape[1]
         return torch.rot90(image, 1, (1, 2))
@@ -51,12 +54,29 @@ class Rotate90(Base):
     def batch_augment(self, images):
         self.imsize = images.shape[2]
         return torch.rot90(images, 1, (2, 3))
-    
+
     def deaugment_boxes(self, boxes):
         res_boxes = boxes.copy()
-        res_boxes[:, [0,2]] = self.imsize - boxes[:, [3,1]] 
+        res_boxes[:, [0,2]] = self.imsize - boxes[:, [3,1]]
         res_boxes[:, [1,3]] = boxes[:, [0,2]]
         return res_boxes
+
+
+class Rotate90Right(Base):
+    def augment(self, image):
+        self.imsize = image.shape[1]
+        return torch.rot90(image, 1, (2, 1))
+
+    def batch_augment(self, images):
+        self.imsize = images.shape[2]
+        return torch.rot90(images, 1, (3, 2))
+
+    def deaugment_boxes(self, boxes):
+        res_boxes = boxes.copy()
+        res_boxes[:, [1,3]] = self.imsize - boxes[:, [2,0]]
+        res_boxes[:, [0,2]] = boxes[:, [3,1]]
+        return res_boxes
+    
 
 class Multiply(Base):
     # change brightness of image
@@ -70,6 +90,7 @@ class Multiply(Base):
     def deaugment_boxes(self, boxes):
         return boxes
 
+    
 class MultiScale(Base):
     # change scale of the image for TTA.
     def __init__(self, imscale):
@@ -82,6 +103,7 @@ class MultiScale(Base):
     def deaugment_boxes(self, boxes):
         return boxes/self.imscale
 
+    
 class MultiScaleFlip(Base):
     # change scale of the image and hflip.
     def __init__(self, imscale):
@@ -98,6 +120,7 @@ class MultiScaleFlip(Base):
         boxes = boxes/self.imscale
         return boxes
 
+    
 class MultiScaleHFlip(Base):
     # change scale of the image and vflip.
     # not useful for 2d detectors..
@@ -114,6 +137,7 @@ class MultiScaleHFlip(Base):
         boxes[:, [0,2]] = self.imsize*self.imscale - boxes[:, [2,0]]
         boxes = boxes/self.imscale
         return boxes
+
     
 class TTACompose(Base):
     def __init__(self, transforms):
