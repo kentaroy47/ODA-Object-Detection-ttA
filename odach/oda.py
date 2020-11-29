@@ -52,6 +52,7 @@ class Rotate90Left(Base):
         return torch.rot90(image, 1, (1, 2))
 
     def batch_augment(self, images):
+        self.imsize = images.shape[2]
         return torch.rot90(images, 1, (2, 3))
 
     def deaugment_boxes(self, boxes):
@@ -67,6 +68,7 @@ class Rotate90Right(Base):
         return torch.rot90(image, 1, (2, 1))
 
     def batch_augment(self, images):
+        self.imsize = images.shape[2]
         return torch.rot90(images, 1, (3, 2))
 
     def deaugment_boxes(self, boxes):
