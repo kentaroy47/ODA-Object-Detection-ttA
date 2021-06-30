@@ -247,7 +247,7 @@ class TTAWrapper:
                 box = result["boxes"].cpu().numpy()
                 box = tta.deaugment_boxes(box)
                 # scale box to 0-1
-                if np.max(box)>1:
+                if np.max(box, initial=1)>1:
                     box[:,0] /= img.shape[3]
                     box[:,2] /= img.shape[3]
                     box[:,1] /= img.shape[2]
