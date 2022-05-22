@@ -248,10 +248,10 @@ class TTAWrapper:
                 box = tta.deaugment_boxes(box)
                 # scale box to 0-1
                 if np.max(box, initial=1)>1:
-                    box[:,0] /= img.shape[3]
-                    box[:,2] /= img.shape[3]
-                    box[:,1] /= img.shape[2]
-                    box[:,3] /= img.shape[2]
+                    box[:,0] /= (img.shape[3] - 1)
+                    box[:,2] /= (img.shape[3] - 1)
+                    box[:,1] /= (img.shape[2] - 1)
+                    box[:,3] /= (img.shape[2] - 1)
 
                 thresh = 0.01
                 ind = result["scores"].cpu().numpy() > thresh
