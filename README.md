@@ -1,21 +1,14 @@
-# ODAch, An Object Detection TTA tool for Pytorch
-ODA is a test-time-augmentation (TTA) tool for 2d object detectors. 
+# Modified ODAch, An Object Detection TTA tool for Pytorch
+Modified ODA to work with batches and have the same Input/output argument with torchvision Faster-RCNN with ODA-Based tools.
 
-For use in Kaggle object detection competitions.
-
-:star: if it helps you! ;)
-
-![](imgs/res.png)
-
-# Install
-`pip install odach`
+Original Tool can be found here [odach](https://github.com/kentaroy47/ODA-Object-Detection-ttA)
 
 # Usage
-See `Example.ipynb`.
 
 The setup is very simple, similar to [ttach](https://github.com/qubvel/ttach).
 
 ## Singlescale TTA
+The outputs is similar to torchvision frcnn format: [["box":[[x,y,x2,y2], [], ..], "labels": [0,1,..], "scores": [1.0, 0.8, ..]]
 ```python
 import odach as oda
 # Declare TTA variations
@@ -26,7 +19,7 @@ img = loadimg(impath)
 # wrap model and tta
 tta_model = oda.TTAWrapper(model, tta)
 # Execute TTA!
-boxes, scores, labels = tta_model(img)
+loss_dict, outputs = tta_model(images, targets)
 ```
 
 ## Multiscale TTA
@@ -42,34 +35,12 @@ img = loadimg(impath)
 # wrap model and tta
 tta_model = oda.TTAWrapper(model, tta, scale)
 # Execute TTA!
-boxes, scores, labels = tta_model(img)
+loss_dict, outputs = tta_model(images, targets)
 ```
 
 * The boxes are also filtered by nms(wbf default).
 
 * The image size should be square.
-
-## model output wrapping
-* Wrap your detection model so that the output is similar to torchvision frcnn format:
-[["box":[[x,y,x2,y2], [], ..], "labels": [0,1,..], "scores": [1.0, 0.8, ..]]
-
-* Example for EfficientDets
-https://www.kaggle.com/kyoshioka47/example-of-2d-single-scale-tta-with-odach/
-
-```python
-# wrap effdet
-oda_effdet = oda.wrap_effdet(effdet)
-# Declare TTA variations
-tta = [oda.HorizontalFlip(), oda.VerticalFlip(), oda.Rotate90()]
-# Declare scales to tta
-scale = [1]
-# wrap model and tta
-tta_model = oda.TTAWrapper(oda_effdet, tta, scale)
-```
-
-# Example
-## Global Wheat Detection
-[Example notebook](https://www.kaggle.com/kyoshioka47/example-of-odach)
 
 # Thanks
 nms, wbf are from https://kaggle.com/zfturbo
