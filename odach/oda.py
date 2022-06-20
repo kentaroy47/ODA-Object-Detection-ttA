@@ -236,6 +236,12 @@ class TTAWrapper:
     
     # TODO: change to call
     def __call__(self, img):
+        img = torch.stack(img).cuda()
+        n = img.size()[0]
+        boxes_batch = [[] for x in range(n)]
+        scores_batch = [[] for x in range(n)]
+        labels_batch = [[] for x in range(n)]
+
         boxes = []; scores = []; labels = [];
         # TTA loop
         for tta in self.ttas:
@@ -243,24 +249,43 @@ class TTAWrapper:
             inf_img = tta.batch_augment(img.clone())
             results = self.model_inference(inf_img)
             # iter for batch
-            for result in results:
+            for idx, result in enumerate(results):
                 box = result["boxes"].cpu().numpy()
                 box = tta.deaugment_boxes(box)
                 # scale box to 0-1
-                if np.max(box, initial=1)>1:
-                    box[:,0] /= (img.shape[3] - 1)
-                    box[:,2] /= (img.shape[3] - 1)
-                    box[:,1] /= (img.shape[2] - 1)
-                    box[:,3] /= (img.shape[2] - 1)
+                if np.max(box, initial=1) > 1:
+                    box[:, 0] /= img.shape[3]
+                    box[:, 2] /= img.shape[3]
+                    box[:, 1] /= img.shape[2]
+                    box[:, 3] /= img.shape[2]
 
                 thresh = 0.01
                 ind = result["scores"].cpu().numpy() > thresh
-                boxes.append(box[ind])
-                scores.append(result["scores"].cpu().numpy()[ind])
-                labels.append(result["labels"].cpu().numpy()[ind])
+                boxes_batch[idx].append(box[ind])
+                scores_batch[idx].append(result["scores"].cpu().numpy()[ind])
+                labels_batch[idx].append(result["labels"].cpu().numpy()[ind])
+        outputs = []
 
-        boxes, scores, labels = self.nms(boxes, scores, labels)
-        return boxes, scores, labels
+        ##convert to torchvision output style
+        for idx, (single_boxes, single_scores, single_labels) in enumerate(
+                zip(boxes_batch, scores_batch, labels_batch)):
+            output = {}
+
+            single_boxes, single_scores, single_labels = self.nms(single_boxes, single_scores,
+                                                                  single_labels)
+
+            single_boxes[:, 0] *= img.shape[3]
+            single_boxes[:, 1] *= img.shape[2]
+            single_boxes[:, 2] *= img.shape[3]
+            single_boxes[:, 3] *= img.shape[2]
+
+            output['boxes'] = torch.from_numpy(single_boxes)
+            output['scores'] = torch.from_numpy(single_scores)
+            output['labels'] = torch.from_numpy(single_labels)
+
+            outputs.append(output)
+
+        return outputs
 
 # for use in EfficientDets
 class wrap_effdet:
@@ -270,7 +295,7 @@ class wrap_effdet:
         self.imsize = imsize
     
     def __call__(self, img, score_threshold=0.22):       
-        # inference
+        # inference #
         det = self.model(img, torch.tensor([1]*images.shape[0]).float().cuda())
         
         predictions = []
