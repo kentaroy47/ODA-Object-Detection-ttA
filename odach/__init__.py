@@ -12,7 +12,7 @@ Features:
 - NMS and WBF integration
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __author__ = "Kentaro Yoshioka"
 __email__ = "meathouse47@gmail.com"
 

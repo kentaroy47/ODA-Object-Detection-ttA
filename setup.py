@@ -9,7 +9,7 @@ with open('README.md', 'r', encoding='utf-8') as f:
 with open('requirements.txt', 'r', encoding='utf-8') as f:
     requirements = [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
-VERSION = '0.2.0'
+VERSION = '0.3.0'
 
 setup(
     # Metadata
