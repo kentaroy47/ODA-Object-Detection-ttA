@@ -140,11 +140,11 @@ class TestRealYOLOIntegration(unittest.TestCase):
     
     def test_real_yolo_batch_processing(self):
         """Test batch processing with real YOLO model"""
-        # Create batch of images
-        batch_images = [self.test_image_tensor, self.test_image_tensor]
+        # Create batch tensor instead of list of tensors
+        batch_tensor = torch.cat([self.test_image_tensor, self.test_image_tensor], dim=0)
         
         # Run batch inference
-        predictions = self.yolo_wrapper(batch_images)
+        predictions = self.yolo_wrapper(batch_tensor)
         
         # Check batch output
         self.assertEqual(len(predictions), 2)
