@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "odach"
+dynamic = ["version"]
+description = "ODAch is a test-time-augmentation tool for pytorch 2d object detectors with YOLO support."
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Kentaro Yoshioka", email = "meathouse47@gmail.com"}
+]
+maintainers = [
+    {name = "Kentaro Yoshioka", email = "meathouse47@gmail.com"}
+]
+keywords = ["object-detection", "pytorch", "tta", "test-time-augmentation", "yolo", "computer-vision"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "torch>=1.7.0",
+    "numpy>=1.19.0",
+    "numba>=0.50.0",
+    "ultralytics>=8.0.0",
+    "Pillow>=8.0.0",
+    "torchvision>=0.8.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/kentaroy47/ODA-Object-Detection-ttA"
+Documentation = "https://github.com/kentaroy47/ODA-Object-Detection-ttA#readme"
+Repository = "https://github.com/kentaroy47/ODA-Object-Detection-ttA"
+"Bug Tracker" = "https://github.com/kentaroy47/ODA-Object-Detection-ttA/issues"
+
+[tool.setuptools]
+packages = ["odach"]
+
+[tool.setuptools.package-data]
+odach = ["*.py"]
+
+[tool.setuptools.dynamic]
+version = {attr = "odach.__version__"} 

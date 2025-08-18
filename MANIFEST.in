@@ -1,0 +1,20 @@
+include README.md
+include LICENSE
+include requirements.txt
+include *.md
+recursive-include odach *.py
+exclude *.pyc
+exclude __pycache__
+exclude .git*
+exclude .trunk*
+exclude .github*
+exclude tests*
+exclude test_*
+exclude *test*
+exclude *.ipynb
+exclude *.pt
+exclude imgs/*
+exclude dev*
+exclude example*
+exclude mask-rcnn*
+exclude Example* 
