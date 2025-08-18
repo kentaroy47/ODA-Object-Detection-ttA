@@ -7,6 +7,67 @@ For use in Kaggle object detection competitions.
 
 ![](imgs/res.png)
 
+# 🚀 YOLO Integration (New!)
+
+ODAch now supports YOLOv5, YOLOv8, and newer YOLO models from Ultralytics! This is the most important feature for modern object detection workflows.
+
+## Quick Start with YOLO
+
+```python
+import odach as oda
+from ultralytics import YOLO
+
+# Load your YOLO model
+model = YOLO('yolov8n.pt')  # or yolov5, yolov6, yolov7, yolov8, yolov9
+
+# Wrap the YOLO model for ODAch
+yolo_wrapper = oda.wrap_yolo(model, imsize=640, score_threshold=0.25)
+
+# Define TTA transformations
+tta = [oda.HorizontalFlip(), oda.VerticalFlip(), oda.Rotate90Left(), oda.Rotate90Right()]
+
+# Create TTA wrapper
+tta_model = oda.TTAWrapper(yolo_wrapper, tta)
+
+# Run inference with TTA
+results = tta_model(images)
+```
+
+## YOLO Features
+
+- **Multi-version support**: YOLOv5, YOLOv6, YOLOv7, YOLOv8, YOLOv9
+- **Automatic format conversion**: Handles YOLO output format automatically
+- **Batch processing**: Process multiple images efficiently
+- **Configurable thresholds**: Adjust confidence and IoU thresholds
+- **Seamless integration**: Works with existing ODAch TTA pipeline
+
+## YOLO TTA Example
+
+```python
+# Advanced YOLO TTA with multiple scales
+tta = [
+    oda.HorizontalFlip(), 
+    oda.VerticalFlip(), 
+    oda.Rotate90Left(), 
+    oda.Rotate90Right(),
+    oda.Multiply(0.9), 
+    oda.Multiply(1.1)
+]
+
+# Multi-scale TTA
+scale = [0.8, 0.9, 1.0, 1.1, 1.2]
+
+# Create TTA wrapper with scales
+tta_model = oda.TTAWrapper(yolo_wrapper, tta, scale)
+
+# Run inference
+results = tta_model(images)
+```
+
+See `example_yolo_usage.py` and `YOLO_INTEGRATION_README.md` for detailed examples.
+
+---
+
 # Install
 `pip install odach`
 
@@ -19,7 +80,7 @@ The setup is very simple, similar to [ttach](https://github.com/qubvel/ttach).
 ```python
 import odach as oda
 # Declare TTA variations
-tta = [oda.HorizontalFlip(), oda.VerticalFlip(), oda.Rotate90(), oda.Multiply(0.9), oda.Multiply(1.1)]
+tta = [oda.HorizontalFlip(), oda.VerticalFlip(), oda.Rotate90Left(), oda.Multiply(0.9), oda.Multiply(1.1)]
 
 # load image
 img = loadimg(impath)
@@ -33,7 +94,7 @@ boxes, scores, labels = tta_model(img)
 ```python
 import odach as oda
 # Declare TTA variations
-tta = [oda.HorizontalFlip(), oda.VerticalFlip(), oda.Rotate90(), oda.Multiply(0.9), oda.Multiply(1.1)]
+tta = [oda.HorizontalFlip(), oda.VerticalFlip(), oda.Rotate90Left(), oda.Multiply(0.9), oda.Multiply(1.1)]
 # Declare scales to tta
 scale = [0.8, 0.9, 1, 1.1, 1.2]
 
@@ -49,7 +110,7 @@ boxes, scores, labels = tta_model(img)
 
 * The image size should be square.
 
-## model output wrapping
+## Model Output Wrapping
 * Wrap your detection model so that the output is similar to torchvision frcnn format:
 [["box":[[x,y,x2,y2], [], ..], "labels": [0,1,..], "scores": [1.0, 0.8, ..]]
 
@@ -60,14 +121,18 @@ https://www.kaggle.com/kyoshioka47/example-of-2d-single-scale-tta-with-odach/
 # wrap effdet
 oda_effdet = oda.wrap_effdet(effdet)
 # Declare TTA variations
-tta = [oda.HorizontalFlip(), oda.VerticalFlip(), oda.Rotate90()]
+tta = [oda.HorizontalFlip(), oda.VerticalFlip(), oda.Rotate90Left()]
 # Declare scales to tta
 scale = [1]
 # wrap model and tta
 tta_model = oda.TTAWrapper(oda_effdet, tta, scale)
 ```
 
-# Example
+# Examples
+## YOLO TTA Examples
+- `example_yolo_usage.py` - Basic YOLO integration
+- `YOLO_INTEGRATION_README.md` - Detailed YOLO usage guide
+
 ## Global Wheat Detection
 [Example notebook](https://www.kaggle.com/kyoshioka47/example-of-odach)
 

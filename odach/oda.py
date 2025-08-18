@@ -20,11 +20,25 @@ class Base():
         
 class HorizontalFlip(Base):
     def augment(self, image):
-        self.imsize = image.shape[1]
+        self.imsize = image.shape[3]  # width for horizontal flip
         return image.flip(1)
     
     def batch_augment(self, images):
-        self.imsize = images.shape[2]
+        self.imsize = images.shape[3]  # width for horizontal flip
+        return images.flip(2)
+    
+    def deaugment_boxes(self, boxes):
+        boxes[:, [0,2]] = self.imsize - boxes[:, [2,0]]
+        return boxes
+
+    
+class VerticalFlip(Base):
+    def augment(self, image):
+        self.imsize = image.shape[2]  # height for vertical flip
+        return image.flip(2)
+    
+    def batch_augment(self, images):
+        self.imsize = images.shape[2]  # height for vertical flip
         return images.flip(2)
     
     def deaugment_boxes(self, boxes):
@@ -32,28 +46,16 @@ class HorizontalFlip(Base):
         return boxes
 
     
-class VerticalFlip(Base):
-    def augment(self, image):
-        self.imsize = image.shape[1]
-        return image.flip(2)
-    
-    def batch_augment(self, images):
-        self.imsize = images.shape[2]
-        return images.flip(3)
-    
-    def deaugment_boxes(self, boxes):
-        boxes[:, [0,2]] = self.imsize - boxes[:, [2,0]]
-        return boxes
-
-    
 class Rotate90Left(Base):
     def augment(self, image):
-        self.imsize = image.shape[1]
-        return torch.rot90(image, 1, (1, 2))
+        self.imsize = image.shape[2]  # height
+        # Rotate 90 degrees left: transpose and flip
+        return torch.flip(image.transpose(2, 3), dims=[2])
 
     def batch_augment(self, images):
-        self.imsize = images.shape[2]
-        return torch.rot90(images, 1, (2, 3))
+        self.imsize = images.shape[2]  # height
+        # Rotate 90 degrees left: transpose and flip
+        return torch.flip(images.transpose(2, 3), dims=[2])
 
     def deaugment_boxes(self, boxes):
         res_boxes = boxes.copy()
@@ -64,12 +66,13 @@ class Rotate90Left(Base):
 
 class Rotate90Right(Base):
     def augment(self, image):
-        self.imsize = image.shape[1]
-        return torch.rot90(image, 1, (2, 1))
+        self.imsize = image.shape[2]  # height
+        # Rotate 90 degrees right: transpose and flip
+        return torch.flip(image.transpose(2, 3), dims=[3])
 
     def batch_augment(self, images):
-        self.imsize = images.shape[2]
-        return torch.rot90(images, 1, (3, 2))
+        self.imsize = images.shape[2]  # height
+        return torch.flip(images.transpose(2, 3), dims=[3])
 
     def deaugment_boxes(self, boxes):
         res_boxes = boxes.copy()
@@ -110,10 +113,10 @@ class MultiScaleFlip(Base):
         # scale is a float value 0.5~1.5
         self.imscale = imscale
     def augment(self, image):
-        self.imsize = image.shape[1]
+        self.imsize = image.shape[2]  # height
         return F.interpolate(image, scale_factor=self.imscale).flip(2)
     def batch_augment(self, images):
-        self.imsize = images.shape[2]
+        self.imsize = images.shape[2]  # height
         return F.interpolate(images, scale_factor=self.imscale).flip(3)
     def deaugment_boxes(self, boxes):
         boxes[:, [0,2]] = self.imsize*self.imscale - boxes[:, [2,0]]
@@ -128,10 +131,10 @@ class MultiScaleHFlip(Base):
         # scale is a float value 0.5~1.5
         self.imscale = imscale
     def augment(self, image):
-        self.imsize = image.shape[1]
+        self.imsize = image.shape[3]  # width
         return F.interpolate(image, scale_factor=self.imscale).flip(1)
     def batch_augment(self, images):
-        self.imsize = images.shape[2]
+        self.imsize = images.shape[3]  # width
         return F.interpolate(images, scale_factor=self.imscale).flip(2)
     def deaugment_boxes(self, boxes):
         boxes[:, [0,2]] = self.imsize*self.imscale - boxes[:, [2,0]]
@@ -166,7 +169,7 @@ class TTACompose(Base):
             boxes = transform.deaugment_boxes(boxes)
         return self.prepare_boxes(boxes)
     
-from .nms import nms, soft_nms
+from .nms import nms
 from .wbf import weighted_boxes_fusion
 
 class nms_func():
@@ -201,7 +204,9 @@ class TTAWrapper:
     skip_box_thr: score threshold for nms
     weights: for weighted box fusion, but None is fine.
     """
-    def __init__(self, model, tta, scale=[1], nms="wbf", iou_thr=0.5, skip_box_thr=0.5, weights=None):
+    def __init__(self, model, tta, scale=None, nms="wbf", iou_thr=0.5, skip_box_thr=0.5, weights=None):
+        if scale is None:
+            scale = [1]
         self.ttas = self.generate_TTA(tta, scale)
         self.model = model #.eval()       
         # set nms function
@@ -236,13 +241,22 @@ class TTAWrapper:
     
     # TODO: change to call
     def __call__(self, img):
-        img = torch.stack(img).cuda()
+        # Handle both single tensor and list of tensors
+        if isinstance(img, (list, tuple)):
+            img = torch.stack(img)
+        elif not isinstance(img, torch.Tensor):
+            raise TypeError("Input must be a torch.Tensor or list/tuple of tensors")
+        
+        # Move to GPU if available
+        if torch.cuda.is_available():
+            img = img.cuda()
+        
         n = img.size()[0]
         boxes_batch = [[] for x in range(n)]
         scores_batch = [[] for x in range(n)]
         labels_batch = [[] for x in range(n)]
 
-        boxes = []; scores = []; labels = [];
+        # Initialize empty lists for collecting results
         # TTA loop
         for tta in self.ttas:
             # gen img
@@ -296,7 +310,7 @@ class wrap_effdet:
     
     def __call__(self, img, score_threshold=0.22):       
         # inference #
-        det = self.model(img, torch.tensor([1]*images.shape[0]).float().cuda())
+        det = self.model(img, torch.tensor([1]*img.shape[0]).float().cuda())
         
         predictions = []
         for i in range(img.shape[0]):
@@ -320,4 +334,158 @@ class wrap_effdet:
                 "labels": torch.from_numpy(np.ones_like(npscore[indexes])).cuda()
             })
             
+        return predictions
+
+
+# for use in YOLOv5 and newer YOLO models from Ultralytics
+class wrap_yolo:
+    """
+    Wrapper for YOLOv5 and newer YOLO models from Ultralytics.
+    Handles the output format from YOLO models and converts it to the expected format.
+    
+    Args:
+        model: YOLO model instance (e.g., YOLO('yolov8n.pt'))
+        imsize: Input image size for the model (default: 640)
+        score_threshold: Confidence threshold for filtering detections (default: 0.25)
+        iou_threshold: IoU threshold for NMS (default: 0.45)
+    """
+    def __init__(self, model, imsize=640, score_threshold=0.25, iou_threshold=0.45):
+        self.model = model
+        self.imsize = imsize
+        self.score_threshold = score_threshold
+        self.iou_threshold = iou_threshold
+    
+    def __call__(self, img, score_threshold=None):
+        """
+        Run inference on input images and return results in the expected format.
+        
+        Args:
+            img: Input tensor of shape (batch_size, channels, height, width)
+            score_threshold: Override the default score threshold if provided
+            
+        Returns:
+            List of dictionaries with 'boxes', 'scores', and 'labels' keys
+        """
+        if score_threshold is None:
+            score_threshold = self.score_threshold
+            
+        # Convert torch tensor to numpy for YOLO inference
+        # YOLO expects numpy arrays or PIL images
+        if isinstance(img, torch.Tensor):
+            # Convert to numpy
+            img_np = img.cpu().numpy()
+            if img_np.shape[1] == 3:  # CHW format
+                img_np = np.transpose(img_np, (0, 2, 3, 1))  # Convert to BHWC
+            
+            # Convert to uint8 if needed
+            if img_np.dtype != np.uint8:
+                if img_np.max() <= 1.0:
+                    img_np = (img_np * 255).astype(np.uint8)
+                else:
+                    img_np = img_np.astype(np.uint8)
+        elif isinstance(img, (list, tuple)) and all(isinstance(x, torch.Tensor) for x in img):
+            # Handle list of tensors
+            img_np = []
+            for tensor in img:
+                np_tensor = tensor.cpu().numpy()
+                if np_tensor.shape[0] == 3:  # CHW format
+                    np_tensor = np.transpose(np_tensor, (1, 2, 0))  # Convert to HWC
+                
+                # Convert to uint8 if needed
+                if np_tensor.dtype != np.uint8:
+                    if np_tensor.max() <= 1.0:
+                        np_tensor = (np_tensor * 255).astype(np.uint8)
+                    else:
+                        np_tensor = np_tensor.astype(np.uint8)
+                
+                # Ensure image has valid dimensions
+                if np_tensor.shape[0] > 0 and np_tensor.shape[1] > 0:
+                    img_np.append(np_tensor)
+                else:
+                    # Skip invalid images
+                    continue
+            
+            if not img_np:
+                raise ValueError("No valid images found in batch")
+            
+            img_np = np.array(img_np)
+        else:
+            raise TypeError("Input must be a torch.Tensor or list/tuple of tensors")
+        
+        predictions = []
+        
+        # Process each image in the batch
+        for i in range(img_np.shape[0]):
+            # Run YOLO inference with explicit size
+            results = self.model(img_np[i], conf=score_threshold, iou=self.iou_threshold, verbose=False, imgsz=self.imsize)
+            
+            # Extract boxes, scores, and labels
+            # YOLO results is a list, so we need to access results[0]
+            if hasattr(results, 'boxes') and results.boxes is not None:
+                # Newer YOLO versions (v8+)
+                boxes = results.boxes.xyxy.cpu().numpy()  # x1, y1, x2, y2 format
+                scores = results.boxes.conf.cpu().numpy()
+                labels = results.boxes.cls.cpu().numpy().astype(int)
+            elif hasattr(results[0], 'boxes') and results[0].boxes is not None:
+                # Newer YOLO versions (v8+) - results is a list
+                boxes = results[0].boxes.xyxy.cpu().numpy()  # x1, y1, x2, y2 format
+                scores = results[0].boxes.conf.cpu().numpy()
+                labels = results[0].boxes.cls.cpu().numpy().astype(int)
+            elif hasattr(results, 'xyxy') and results.xyxy is not None:
+                # YOLOv5 format
+                detections = results.xyxy[0].cpu().numpy()  # [x1, y1, x2, y2, conf, cls]
+                if len(detections) > 0:
+                    boxes = detections[:, :4]  # x1, y1, x2, y2
+                    scores = detections[:, 4]  # confidence scores
+                    labels = detections[:, 5].astype(int)  # class labels
+                else:
+                    boxes = np.empty((0, 4))
+                    scores = np.empty(0)
+                    labels = np.empty(0, dtype=int)
+            elif hasattr(results[0], 'xyxy') and results[0].xyxy is not None:
+                # YOLOv5 format - results is a list
+                detections = results[0].xyxy[0].cpu().numpy()  # [x1, y1, x2, y2, conf, cls]
+                if len(detections) > 0:
+                    boxes = detections[:, :4]  # x1, y1, x2, y2
+                    scores = detections[:, 4]  # confidence scores
+                    labels = detections[:, 5].astype(int)  # class labels
+                else:
+                    boxes = np.empty((0, 4))
+                    scores = np.empty(0)
+                    labels = np.empty(0, dtype=int)
+            else:
+                # Fallback for other formats
+                boxes = np.empty((0, 4))
+                scores = np.empty(0)
+                labels = np.empty(0, dtype=int)
+            
+            # Filter by score threshold
+            if len(scores) > 0:
+                mask = scores >= score_threshold
+                boxes = boxes[mask]
+                scores = scores[mask]
+                labels = labels[mask]
+            
+            # Normalize boxes to [0, 1] range for TTA processing
+            if len(boxes) > 0:
+                # Get original image dimensions
+                orig_h, orig_w = img_np[i].shape[:2]
+                
+                # Normalize coordinates
+                boxes_normalized = boxes.copy()
+                boxes_normalized[:, [0, 2]] /= orig_w  # x coordinates
+                boxes_normalized[:, [1, 3]] /= orig_h  # y coordinates
+                
+                # Clamp to [0, 1] range
+                boxes_normalized = np.clip(boxes_normalized, 0, 1)
+            else:
+                boxes_normalized = np.empty((0, 4))
+            
+            # Convert to torch tensors and create output format
+            predictions.append({
+                'boxes': torch.from_numpy(boxes_normalized),
+                'scores': torch.from_numpy(scores),
+                'labels': torch.from_numpy(labels)
+            })
+        
         return predictions
