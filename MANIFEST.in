@@ -1,7 +1,6 @@
 include README.md
 include LICENSE
 include requirements.txt
-include *.md
 recursive-include odach *.py
 exclude *.pyc
 exclude __pycache__
@@ -17,4 +16,8 @@ exclude imgs/*
 exclude dev*
 exclude example*
 exclude mask-rcnn*
-exclude Example* 
+exclude Example*
+exclude uv.lock
+exclude *.lock
+exclude notebooks/*
+exclude utils/* 
