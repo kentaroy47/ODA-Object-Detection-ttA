@@ -484,6 +484,93 @@ class TestIntegration(unittest.TestCase):
         self.assertTrue(np.all(deaugmented_boxes <= 100))
 
 
+class TestBoxFormatConversion(unittest.TestCase):
+    """Test VOC/COCO box format conversion functions"""
+
+    def setUp(self):
+        # VOC format: [x1, y1, x2, y2]
+        self.voc_boxes = np.array([
+            [10, 20, 50, 80],   # box 1
+            [100, 150, 200, 250]  # box 2
+        ], dtype=np.float64)
+
+        # Equivalent COCO format: [x, y, width, height]
+        self.coco_boxes = np.array([
+            [10, 20, 40, 60],   # box 1: w=50-10=40, h=80-20=60
+            [100, 150, 100, 100]  # box 2: w=200-100=100, h=250-150=100
+        ], dtype=np.float64)
+
+    def test_voc_to_coco_numpy(self):
+        """Test VOC to COCO conversion with numpy arrays"""
+        from odach.oda import voc_to_coco
+        converted = voc_to_coco(self.voc_boxes)
+        np.testing.assert_array_almost_equal(converted, self.coco_boxes)
+
+    def test_coco_to_voc_numpy(self):
+        """Test COCO to VOC conversion with numpy arrays"""
+        from odach.oda import coco_to_voc
+        converted = coco_to_voc(self.coco_boxes)
+        np.testing.assert_array_almost_equal(converted, self.voc_boxes)
+
+    def test_voc_to_coco_tensor(self):
+        """Test VOC to COCO conversion with torch tensors"""
+        from odach.oda import voc_to_coco
+        voc_tensor = torch.tensor(self.voc_boxes)
+        converted = voc_to_coco(voc_tensor)
+        np.testing.assert_array_almost_equal(converted.numpy(), self.coco_boxes)
+
+    def test_coco_to_voc_tensor(self):
+        """Test COCO to VOC conversion with torch tensors"""
+        from odach.oda import coco_to_voc
+        coco_tensor = torch.tensor(self.coco_boxes)
+        converted = coco_to_voc(coco_tensor)
+        np.testing.assert_array_almost_equal(converted.numpy(), self.voc_boxes)
+
+    def test_roundtrip_conversion(self):
+        """Test that VOC -> COCO -> VOC returns original boxes"""
+        from odach.oda import voc_to_coco, coco_to_voc
+        coco = voc_to_coco(self.voc_boxes)
+        back_to_voc = coco_to_voc(coco)
+        np.testing.assert_array_almost_equal(back_to_voc, self.voc_boxes)
+
+    def test_empty_boxes(self):
+        """Test conversion with empty boxes"""
+        from odach.oda import voc_to_coco, coco_to_voc
+        empty = np.empty((0, 4))
+        self.assertEqual(len(voc_to_coco(empty)), 0)
+        self.assertEqual(len(coco_to_voc(empty)), 0)
+
+    def test_tta_wrapper_box_format_initialization(self):
+        """Test TTAWrapper with box_format parameter initialization"""
+        class MockModel:
+            def __call__(self, img):
+                batch_size = img.shape[0]
+                return [{
+                    'boxes': torch.tensor([[10.0, 20.0, 50.0, 80.0]]),
+                    'scores': torch.tensor([0.9]),
+                    'labels': torch.tensor([1])
+                } for _ in range(batch_size)]
+
+        mock_model = MockModel()
+
+        # Test VOC format (default)
+        tta_voc = TTAWrapper(mock_model, [HorizontalFlip], box_format="voc")
+        self.assertEqual(tta_voc.box_format, "voc")
+
+        # Test COCO format
+        tta_coco = TTAWrapper(mock_model, [HorizontalFlip], box_format="coco")
+        self.assertEqual(tta_coco.box_format, "coco")
+
+    def test_invalid_box_format(self):
+        """Test that invalid box_format raises error"""
+        class MockModel:
+            def __call__(self, img):
+                return [{'boxes': torch.tensor([]), 'scores': torch.tensor([]), 'labels': torch.tensor([])}]
+
+        with self.assertRaises(ValueError):
+            TTAWrapper(MockModel(), [HorizontalFlip], box_format="invalid")
+
+
 if __name__ == '__main__':
     # Run tests
     unittest.main(verbosity=2) 

@@ -6,6 +6,55 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 
+# Box format conversion utilities
+def voc_to_coco(boxes):
+    """
+    Convert boxes from VOC format (x1, y1, x2, y2) to COCO format (x, y, width, height).
+
+    Args:
+        boxes: numpy array or torch tensor of shape (N, 4)
+
+    Returns:
+        Boxes in COCO format
+    """
+    if len(boxes) == 0:
+        return boxes
+
+    if isinstance(boxes, torch.Tensor):
+        coco_boxes = boxes.clone()
+        coco_boxes[:, 2] = boxes[:, 2] - boxes[:, 0]  # width = x2 - x1
+        coco_boxes[:, 3] = boxes[:, 3] - boxes[:, 1]  # height = y2 - y1
+    else:
+        coco_boxes = boxes.copy()
+        coco_boxes[:, 2] = boxes[:, 2] - boxes[:, 0]  # width = x2 - x1
+        coco_boxes[:, 3] = boxes[:, 3] - boxes[:, 1]  # height = y2 - y1
+    return coco_boxes
+
+
+def coco_to_voc(boxes):
+    """
+    Convert boxes from COCO format (x, y, width, height) to VOC format (x1, y1, x2, y2).
+
+    Args:
+        boxes: numpy array or torch tensor of shape (N, 4)
+
+    Returns:
+        Boxes in VOC format
+    """
+    if len(boxes) == 0:
+        return boxes
+
+    if isinstance(boxes, torch.Tensor):
+        voc_boxes = boxes.clone()
+        voc_boxes[:, 2] = boxes[:, 0] + boxes[:, 2]  # x2 = x + width
+        voc_boxes[:, 3] = boxes[:, 1] + boxes[:, 3]  # y2 = y + height
+    else:
+        voc_boxes = boxes.copy()
+        voc_boxes[:, 2] = boxes[:, 0] + boxes[:, 2]  # x2 = x + width
+        voc_boxes[:, 3] = boxes[:, 1] + boxes[:, 3]  # y2 = y + height
+    return voc_boxes
+
+
 class Base():
     def augment(self, image):
         # pass torch tensors
@@ -203,15 +252,20 @@ class TTAWrapper:
     iou_thr: iou threshold for nms
     skip_box_thr: score threshold for nms
     weights: for weighted box fusion, but None is fine.
+    box_format: output box format, "voc" (x1,y1,x2,y2) or "coco" (x,y,w,h). Default is "voc".
     """
-    def __init__(self, model, tta, scale=None, nms="wbf", iou_thr=0.5, skip_box_thr=0.5, weights=None):
+    def __init__(self, model, tta, scale=None, nms="wbf", iou_thr=0.5, skip_box_thr=0.5, weights=None, box_format="voc"):
         if scale is None:
             scale = [1]
         self.ttas = self.generate_TTA(tta, scale)
-        self.model = model #.eval()       
+        self.model = model #.eval()
         # set nms function
         # default is weighted box fusion.
         self.nms = nms_func(nms, weights, iou_thr, skip_box_thr)
+        # set output box format
+        if box_format not in ["voc", "coco"]:
+            raise ValueError(f"box_format must be 'voc' or 'coco', got '{box_format}'")
+        self.box_format = box_format
     
     def generate_TTA(self, tta, scale):
         from itertools import product
@@ -301,7 +355,12 @@ class TTAWrapper:
             single_boxes[:, 2] *= img.shape[3]
             single_boxes[:, 3] *= img.shape[2]
 
-            output['boxes'] = torch.from_numpy(single_boxes)
+            # Convert box format if needed
+            boxes_tensor = torch.from_numpy(single_boxes)
+            if self.box_format == "coco":
+                boxes_tensor = voc_to_coco(boxes_tensor)
+
+            output['boxes'] = boxes_tensor
             output['scores'] = torch.from_numpy(single_scores)
             output['labels'] = torch.from_numpy(single_labels)
 
@@ -356,18 +415,22 @@ class wrap_yolo:
     """
     Wrapper for YOLOv5 and newer YOLO models from Ultralytics.
     Handles the output format from YOLO models and converts it to the expected format.
-    
+
     Args:
         model: YOLO model instance (e.g., YOLO('yolov8n.pt'))
         imsize: Input image size for the model (default: 640)
         score_threshold: Confidence threshold for filtering detections (default: 0.25)
         iou_threshold: IoU threshold for NMS (default: 0.45)
+        box_format: Output box format, "voc" (x1,y1,x2,y2) or "coco" (x,y,w,h). Default is "voc".
     """
-    def __init__(self, model, imsize=640, score_threshold=0.25, iou_threshold=0.45):
+    def __init__(self, model, imsize=640, score_threshold=0.25, iou_threshold=0.45, box_format="voc"):
         self.model = model
         self.imsize = imsize
         self.score_threshold = score_threshold
         self.iou_threshold = iou_threshold
+        if box_format not in ["voc", "coco"]:
+            raise ValueError(f"box_format must be 'voc' or 'coco', got '{box_format}'")
+        self.box_format = box_format
     
     def __call__(self, img, score_threshold=None):
         """
@@ -495,10 +558,16 @@ class wrap_yolo:
                 boxes_normalized = np.empty((0, 4), dtype=np.float64)
             
             # Convert to torch tensors and create output format
+            boxes_tensor = torch.from_numpy(boxes_normalized)
+
+            # Convert box format if needed
+            if self.box_format == "coco":
+                boxes_tensor = voc_to_coco(boxes_tensor)
+
             predictions.append({
-                'boxes': torch.from_numpy(boxes_normalized),
+                'boxes': boxes_tensor,
                 'scores': torch.from_numpy(scores),
                 'labels': torch.from_numpy(labels)
             })
-        
+
         return predictions
