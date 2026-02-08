@@ -24,7 +24,7 @@ from odach.wbf import weighted_boxes_fusion
 
 class MockYOLOResults:
     """Mock YOLO results object to simulate different YOLO versions"""
-    
+
     def __init__(self, boxes, scores, labels, version="v8"):
         self.version = version
         if version == "v8":
@@ -40,6 +40,16 @@ class MockYOLOResults:
             # Generic format
             self.boxes = None
             self.xyxy = None
+
+    def __getitem__(self, idx):
+        """Allow subscript access like results[0]"""
+        if idx == 0:
+            return self
+        raise IndexError("MockYOLOResults only supports index 0")
+
+    def __iter__(self):
+        """Allow iteration like for result in results"""
+        return iter([self])
 
 
 class TestWrapYOLO(unittest.TestCase):
@@ -298,10 +308,11 @@ class TestYOLONMSIntegration(unittest.TestCase):
 
 class TestYOLORealWorldScenarios(unittest.TestCase):
     """Test YOLO integration with real-world scenarios"""
-    
+
     def setUp(self):
         self.mock_yolo_model = Mock()
         self.yolo_wrapper = wrap_yolo(self.mock_yolo_model, imsize=640)
+        self.test_image = torch.randn(1, 3, 640, 640)
     
     def test_yolo_batch_processing(self):
         """Test YOLO wrapper with batch processing"""

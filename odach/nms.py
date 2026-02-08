@@ -182,9 +182,21 @@ def nms_method(boxes, scores, labels, method=3, iou_thr=0.5, sigma=0.5, thresh=0
                 scores[i] = (np.array(scores[i]) * weights[i]) / weights.sum()
 
     # We concatenate everything
-    boxes = np.concatenate(boxes)
-    scores = np.concatenate(scores)
-    labels = np.concatenate(labels)
+    # Handle empty input
+    if len(boxes) == 0 or all(len(b) == 0 for b in boxes):
+        return np.empty((0, 4)), np.empty(0), np.empty(0)
+
+    # Filter out empty arrays before concatenation
+    non_empty_boxes = [b for b in boxes if len(b) > 0]
+    non_empty_scores = [s for s in scores if len(s) > 0]
+    non_empty_labels = [l for l in labels if len(l) > 0]
+
+    if len(non_empty_boxes) == 0:
+        return np.empty((0, 4)), np.empty(0), np.empty(0)
+
+    boxes = np.concatenate(non_empty_boxes)
+    scores = np.concatenate(non_empty_scores)
+    labels = np.concatenate(non_empty_labels)
 
     # Fix coordinates and removed zero area boxes
     boxes, scores, labels = prepare_boxes(boxes, scores, labels)
@@ -209,6 +221,11 @@ def nms_method(boxes, scores, labels, method=3, iou_thr=0.5, sigma=0.5, thresh=0
         final_boxes.append(boxes_by_label[keep])
         final_scores.append(scores_by_label[keep])
         final_labels.append(labels_by_label[keep])
+
+    # Handle empty results
+    if len(final_boxes) == 0:
+        return np.empty((0, 4)), np.empty(0), np.empty(0)
+
     final_boxes = np.concatenate(final_boxes)
     final_scores = np.concatenate(final_scores)
     final_labels = np.concatenate(final_labels)

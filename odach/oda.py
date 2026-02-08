@@ -256,6 +256,12 @@ class TTAWrapper:
         scores_batch = [[] for x in range(n)]
         labels_batch = [[] for x in range(n)]
 
+        # Helper function to convert tensor or numpy to numpy
+        def to_numpy(x):
+            if isinstance(x, torch.Tensor):
+                return x.cpu().numpy()
+            return np.asarray(x)
+
         # Initialize empty lists for collecting results
         # TTA loop
         for tta in self.ttas:
@@ -264,7 +270,7 @@ class TTAWrapper:
             results = self.model_inference(inf_img)
             # iter for batch
             for idx, result in enumerate(results):
-                box = result["boxes"].cpu().numpy()
+                box = to_numpy(result["boxes"])
                 box = tta.deaugment_boxes(box)
                 # scale box to 0-1
                 if np.max(box, initial=1) > 1:
@@ -274,10 +280,12 @@ class TTAWrapper:
                     box[:, 3] /= img.shape[2]
 
                 thresh = 0.01
-                ind = result["scores"].cpu().numpy() > thresh
+                scores_np = to_numpy(result["scores"])
+                labels_np = to_numpy(result["labels"])
+                ind = scores_np > thresh
                 boxes_batch[idx].append(box[ind])
-                scores_batch[idx].append(result["scores"].cpu().numpy()[ind])
-                labels_batch[idx].append(result["labels"].cpu().numpy()[ind])
+                scores_batch[idx].append(scores_np[ind])
+                labels_batch[idx].append(labels_np[ind])
         outputs = []
 
         ##convert to torchvision output style
@@ -303,19 +311,25 @@ class TTAWrapper:
 
 # for use in EfficientDets
 class wrap_effdet:
-    def __init__(self, model, imsize=512):
+    def __init__(self, model, imsize=512, device=None):
         # imsize.. input size of the model
         self.model = model
         self.imsize = imsize
-    
-    def __call__(self, img, score_threshold=0.22):       
+        # Auto-detect device if not specified
+        if device is None:
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            self.device = torch.device(device)
+
+    def __call__(self, img, score_threshold=0.22):
         # inference #
-        det = self.model(img, torch.tensor([1]*img.shape[0]).float().cuda())
-        
+        img_info = torch.tensor([1]*img.shape[0]).float().to(self.device)
+        det = self.model(img, img_info)
+
         predictions = []
         for i in range(img.shape[0]):
             # unwrap output
-            boxes = det[i][:,:4]  
+            boxes = det[i][:,:4]
             scores = det[i][:,4]
             # filter output
             npscore = scores.detach().cpu().numpy()
@@ -331,9 +345,9 @@ class wrap_effdet:
                 'boxes': boxes[indexes],
                 'scores': scores[indexes],
                 # TODO: update for multi-label tasks
-                "labels": torch.from_numpy(np.ones_like(npscore[indexes])).cuda()
+                "labels": torch.from_numpy(np.ones_like(npscore[indexes])).to(self.device)
             })
-            
+
         return predictions
 
 
@@ -407,15 +421,14 @@ class wrap_yolo:
             
             if not img_np:
                 raise ValueError("No valid images found in batch")
-            
-            img_np = np.array(img_np)
+            # Keep as list to handle different image sizes
         else:
             raise TypeError("Input must be a torch.Tensor or list/tuple of tensors")
-        
+
         predictions = []
-        
+
         # Process each image in the batch
-        for i in range(img_np.shape[0]):
+        for i in range(len(img_np)):
             # Run YOLO inference with explicit size
             results = self.model(img_np[i], conf=score_threshold, iou=self.iou_threshold, verbose=False, imgsz=self.imsize)
             
@@ -470,16 +483,16 @@ class wrap_yolo:
             if len(boxes) > 0:
                 # Get original image dimensions
                 orig_h, orig_w = img_np[i].shape[:2]
-                
-                # Normalize coordinates
-                boxes_normalized = boxes.copy()
+
+                # Normalize coordinates (ensure float type for division)
+                boxes_normalized = boxes.astype(np.float64)
                 boxes_normalized[:, [0, 2]] /= orig_w  # x coordinates
                 boxes_normalized[:, [1, 3]] /= orig_h  # y coordinates
-                
+
                 # Clamp to [0, 1] range
                 boxes_normalized = np.clip(boxes_normalized, 0, 1)
             else:
-                boxes_normalized = np.empty((0, 4))
+                boxes_normalized = np.empty((0, 4), dtype=np.float64)
             
             # Convert to torch tensors and create output format
             predictions.append({
